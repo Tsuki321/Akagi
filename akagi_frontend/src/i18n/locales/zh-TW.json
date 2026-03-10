@@ -57,6 +57,17 @@
       "agari_guard_desc": "防止因辨識錯誤而錯過和牌",
       "no_models_found": "未找到本地模型"
     },
+    "majsoulmax": {
+      "title": "MajsoulMax 模組",
+      "mod_enable": "啟用 MajsoulMax 模組",
+      "mod_enable_desc": "透過 MajsoulMax 模組解鎖全部外觀（角色、皮膚、表情等）。",
+      "liqi_auto_update": "自動更新協定檔案",
+      "liqi_auto_update_desc": "啟動時自動下載最新的 liqi proto 檔案。",
+      "github_token": "GitHub Token（可選）",
+      "github_token_desc": "提供 GitHub 個人存取權杖，以避免下載協定檔案時觸發 API 速率限制。",
+      "liqi_version": "協定版本",
+      "mitm_only_notice": "MajsoulMax 僅在「外部代理」（MITM）模式下生效，在「內建視窗」模式下無效。"
+    },
     "saved_success": "設定已更新，請在頁面中確認",
     "status_saved": "所有變更已儲存",
     "status_saving": "正在儲存…",

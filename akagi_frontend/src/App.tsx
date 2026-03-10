@@ -75,6 +75,13 @@ function AppInner() {
             temperature: 0.3,
             rule_based_agari_guard: true,
           },
+          majsoulmax: {
+            mod_enable: false,
+            liqi_auto_update: true,
+            github_token: '',
+            liqi_version: '',
+            liqi_hash: '',
+          },
         } satisfies Settings;
       });
     })();

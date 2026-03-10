@@ -19,6 +19,7 @@ import { useSettings } from '@/hooks/useSettings';
 
 import { ConnectionSection } from './settings/ConnectionSection';
 import { GeneralSection } from './settings/GeneralSection';
+import { MajsoulMaxSection } from './settings/MajsoulMaxSection';
 import { ModelConfigSection } from './settings/ModelConfigSection';
 import { ServiceSection } from './settings/ServiceSection';
 
@@ -93,6 +94,8 @@ const SettingsPanel: FC<SettingsPanelProps> = memo(({ open, onClose }) => {
             <ServiceSection settings={settings} updateSetting={updateSetting} />
 
             <ModelConfigSection settings={settings} updateSetting={updateSetting} />
+
+            <MajsoulMaxSection settings={settings} updateSetting={updateSetting} />
 
             <div className='flex justify-end border-t border-white/5 pt-6'>
               <Button

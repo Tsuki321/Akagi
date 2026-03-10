@@ -57,6 +57,17 @@
       "agari_guard_desc": "認識ミスによる和了逃しを防止します。",
       "no_models_found": "ローカルモデルが見つかりません"
     },
+    "majsoulmax": {
+      "title": "MajsoulMax Mod",
+      "mod_enable": "MajsoulMax Mod を有効にする",
+      "mod_enable_desc": "MajsoulMax Mod を使用してすべての外見（キャラクター・スキン・絵文字など）を解放します。",
+      "liqi_auto_update": "プロトコルファイルの自動更新",
+      "liqi_auto_update_desc": "起動時に最新の liqi proto ファイルを自動ダウンロードします。",
+      "github_token": "GitHub Token（任意）",
+      "github_token_desc": "proto ファイルダウンロード時の API レート制限を回避するために GitHub 個人アクセストークンを指定します。",
+      "liqi_version": "プロトコルバージョン",
+      "mitm_only_notice": "MajsoulMax は「外部プロキシ」（MITM）モードでのみ動作します。内蔵ブラウザモードでは効果がありません。"
+    },
     "saved_success": "設定が更新されました。",
     "status_saved": "保存済み",
     "status_saving": "保存中…",
