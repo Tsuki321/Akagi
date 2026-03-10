@@ -57,6 +57,17 @@
       "agari_guard_desc": "Prevent missing winning hands due to recognition errors.",
       "no_models_found": "No local models found"
     },
+    "majsoulmax": {
+      "title": "MajsoulMax Mod",
+      "mod_enable": "Enable MajsoulMax Mod",
+      "mod_enable_desc": "Unlock cosmetic items (characters, skins, emojis) via the MajsoulMax mod.",
+      "liqi_auto_update": "Auto-update Protocol Files",
+      "liqi_auto_update_desc": "Automatically download the latest liqi proto files on startup.",
+      "github_token": "GitHub Token (optional)",
+      "github_token_desc": "Provide a GitHub personal access token to avoid API rate limits when downloading proto files.",
+      "liqi_version": "Protocol Version",
+      "mitm_only_notice": "MajsoulMax only works in External Proxy (MITM) mode. It has no effect in Internal Browser mode."
+    },
     "saved_success": "Settings updated.",
     "status_saved": "All changes saved.",
     "status_saving": "Saving…",

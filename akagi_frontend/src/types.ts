@@ -58,6 +58,13 @@ export interface Settings {
     temperature: number;
     rule_based_agari_guard: boolean;
   };
+  majsoulmax: {
+    mod_enable: boolean;
+    liqi_auto_update: boolean;
+    github_token: string;
+    liqi_version: string;
+    liqi_hash: string;
+  };
 }
 
 export interface SaveSettingsResponse extends ApiResponse {
