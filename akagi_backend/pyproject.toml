@@ -33,6 +33,8 @@ dependencies = [
     "mitmproxy~=12.2.0",
     # DataServer
     "aiohttp~=3.13.0",
+    # MajsoulMax mod (optional cosmetic-unlock feature)
+    "ruamel.yaml~=0.18.0",
 ]
 
 [project.optional-dependencies]
@@ -56,7 +58,10 @@ akagi-ng = "akagi_ng.__main__:main"
 src = ["akagi_ng"]
 line-length = 120
 target-version = "py312"
-extend-exclude = []
+extend-exclude = [
+    # MajsoulMax ported code is not subject to Akagi's strict linting rules
+    "akagi_ng/majsoulmax",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM", "RET", "C90", "PLR", "TID", "C4", "RUF", "ANN"]

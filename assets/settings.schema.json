@@ -9,8 +9,11 @@
     "mitm",
     "server",
     "ot",
-    "model_config"
+    "model_config",
+    "majsoulmax"
   ],
+  "description": "Settings for the application.",
+  "additionalProperties": false,
   "properties": {
     "log_level": {
       "type": "string",
@@ -145,8 +148,39 @@
         "rule_based_agari_guard"
       ],
       "additionalProperties": false
+    },
+    "majsoulmax": {
+      "type": "object",
+      "description": "MajsoulMax cosmetic unlock configuration.",
+      "properties": {
+        "mod_enable": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable MajsoulMax cosmetic unlocking mod."
+        },
+        "liqi_auto_update": {
+          "type": "boolean",
+          "default": true,
+          "description": "Auto-update liqi proto files on startup when mod is enabled."
+        },
+        "github_token": {
+          "type": "string",
+          "default": "",
+          "description": "GitHub token for AutoLiqi releases API (optional, avoids rate limiting)."
+        },
+        "liqi_version": {
+          "type": "string",
+          "default": "",
+          "description": "Last known liqi file version (managed automatically)."
+        },
+        "liqi_hash": {
+          "type": "string",
+          "default": "",
+          "description": "Last known liqi file hash (managed automatically)."
+        }
+      },
+      "required": ["mod_enable", "liqi_auto_update", "github_token", "liqi_version", "liqi_hash"],
+      "additionalProperties": false
     }
-  },
-  "description": "Settings for the application.",
-  "additionalProperties": false
+  }
 }

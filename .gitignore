@@ -29,3 +29,9 @@ htmlcov/
 .hypothesis/
 .pytest_cache/
 .ruff_cache/
+
+# MajsoulMax runtime-downloaded proto files (downloaded on first run with mod enabled)
+akagi_backend/akagi_ng/majsoulmax/proto/liqi_pb2.py
+akagi_backend/akagi_ng/majsoulmax/proto/liqi.json
+akagi_backend/akagi_ng/majsoulmax/proto/liqi.proto
+akagi_backend/akagi_ng/majsoulmax/proto/lqc.lqbin

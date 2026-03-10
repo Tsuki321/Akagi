@@ -2,7 +2,7 @@ import ctypes
 import json
 import locale
 import os
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Self
 
@@ -56,6 +56,15 @@ class ModelConfig:
 
 
 @dataclass(slots=True)
+class MajsoulMaxConfig:
+    mod_enable: bool = False
+    liqi_auto_update: bool = True
+    github_token: str = ""
+    liqi_version: str = ""
+    liqi_hash: str = ""
+
+
+@dataclass(slots=True)
 class Settings:
     log_level: str
     locale: str
@@ -65,13 +74,14 @@ class Settings:
     server: ServerConfig
     ot: OTConfig
     model_config: ModelConfig
+    majsoulmax: MajsoulMaxConfig = field(default_factory=MajsoulMaxConfig)
 
-    def update(self, data: dict):
-        """从字典更新设置"""
-        _update_settings(self, data)
+    def __post_init__(self) -> None:
         self._validate_game_url()
 
-    def __post_init__(self):
+    def update(self, data: dict) -> None:
+        """从字典更新设置"""
+        _update_settings(self, data)
         self._validate_game_url()
 
     def _validate_game_url(self):
@@ -95,6 +105,7 @@ class Settings:
         server_data = data.get("server", {})
         model_config_data = data.get("model_config", {})
         ot_data = data.get("ot", {})
+        majsoulmax_data = data.get("majsoulmax", {})
         game_url = data.get("game_url", "")
 
         platform_val = data.get("platform")
@@ -125,6 +136,13 @@ class Settings:
                 model_3p=model_config_data.get("model_3p", "mortal3p.pth"),
                 temperature=model_config_data.get("temperature", 0.3),
                 rule_based_agari_guard=model_config_data.get("rule_based_agari_guard", True),
+            ),
+            majsoulmax=MajsoulMaxConfig(
+                mod_enable=majsoulmax_data.get("mod_enable", False),
+                liqi_auto_update=majsoulmax_data.get("liqi_auto_update", True),
+                github_token=majsoulmax_data.get("github_token", ""),
+                liqi_version=majsoulmax_data.get("liqi_version", ""),
+                liqi_hash=majsoulmax_data.get("liqi_hash", ""),
             ),
         )
 
@@ -202,6 +220,13 @@ def get_default_settings_dict() -> dict:
             "temperature": 0.3,
             "rule_based_agari_guard": True,
         },
+        "majsoulmax": {
+            "mod_enable": False,
+            "liqi_auto_update": True,
+            "github_token": "",
+            "liqi_version": "",
+            "liqi_hash": "",
+        },
     }
 
 
@@ -259,7 +284,7 @@ def _get_schema() -> dict:
         return json.load(f)
 
 
-def _update_settings(settings: Settings, data: dict):
+def _update_settings(settings: Settings, data: dict) -> None:
     """从字典更新 Settings 对象"""
     settings.log_level = data.get("log_level", "INFO")
     settings.locale = data.get("locale", "zh-CN")
@@ -286,6 +311,13 @@ def _update_settings(settings: Settings, data: dict):
     settings.ot.online = ot_data.get("online", False)
     settings.ot.server = ot_data.get("server", "")
     settings.ot.api_key = ot_data.get("api_key", "")
+
+    majsoulmax_data = data.get("majsoulmax", {})
+    settings.majsoulmax.mod_enable = majsoulmax_data.get("mod_enable", False)
+    settings.majsoulmax.liqi_auto_update = majsoulmax_data.get("liqi_auto_update", True)
+    settings.majsoulmax.github_token = majsoulmax_data.get("github_token", "")
+    settings.majsoulmax.liqi_version = majsoulmax_data.get("liqi_version", "")
+    settings.majsoulmax.liqi_hash = majsoulmax_data.get("liqi_hash", "")
 
 
 def _save_settings(data: dict):
