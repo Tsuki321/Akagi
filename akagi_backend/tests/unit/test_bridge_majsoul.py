@@ -469,6 +469,132 @@ class TestMajsoulBridge(unittest.TestCase):
         self.assertEqual(self.bridge.rank, 2)  # 第二名
         self.assertEqual(self.bridge.score, 28000)
 
+    # ========== syncGame 重连测试 ==========
+
+    def test_sync_game_includes_start_game(self):
+        """测试 syncGame 响应始终包含 start_game 事件以确保 Bot 激活"""
+        # 模拟已收到 authGame 请求，accountId 已设置，但 seat 可能不正确
+        self.bridge.accountId = 12345678
+        self.bridge.seat = 0
+
+        liqi_message = {
+            "method": ".lq.FastTest.syncGame",
+            "type": 3,
+            "data": {
+                "gameRestore": {
+                    "snapshot": {
+                        "seat": 2,
+                        "players": [
+                            {"accountId": 11111111},
+                            {"accountId": 22222222},
+                            {"accountId": 12345678},
+                            {"accountId": 33333333},
+                        ],
+                    },
+                    "actions": [],
+                }
+            },
+        }
+
+        result = self.bridge.parse_liqi(liqi_message)
+
+        # 第一个事件应该是 start_game
+        self.assertGreater(len(result), 0)
+        self.assertEqual(result[0].type, "start_game")
+        # seat 应该从快照中读取
+        self.assertEqual(result[0].id, 2)
+        self.assertFalse(result[0].is_3p)
+        # seat 状态应同步更新
+        self.assertEqual(self.bridge.seat, 2)
+
+    def test_sync_game_start_game_without_auth(self):
+        """测试 syncGame 在未收到 authGame（Akagi 中途启动）时也能合成 start_game"""
+        # accountId=0 表示未收到 authGame 请求
+        self.assertEqual(self.bridge.accountId, 0)
+
+        liqi_message = {
+            "method": ".lq.FastTest.syncGame",
+            "type": 3,
+            "data": {
+                "gameRestore": {
+                    "snapshot": {
+                        "seat": 1,
+                        "players": [
+                            {"accountId": 11111111},
+                            {"accountId": 12345678},
+                            {"accountId": 22222222},
+                            {"accountId": 33333333},
+                        ],
+                    },
+                    "actions": [],
+                }
+            },
+        }
+
+        result = self.bridge.parse_liqi(liqi_message)
+
+        # 即使没有 authGame，也应该生成 start_game 事件
+        self.assertGreater(len(result), 0)
+        self.assertEqual(result[0].type, "start_game")
+        self.assertEqual(result[0].id, 1)  # 从快照获取的 seat
+        self.assertEqual(self.bridge.seat, 1)
+
+    def test_sync_game_3p_mode_detection(self):
+        """测试 syncGame 正确识别三麻模式"""
+        liqi_message = {
+            "method": ".lq.FastTest.syncGame",
+            "type": 3,
+            "data": {
+                "gameRestore": {
+                    "snapshot": {
+                        "seat": 0,
+                        "players": [
+                            {"accountId": 11111111},
+                            {"accountId": 22222222},
+                            {"accountId": 33333333},
+                        ],
+                    },
+                    "actions": [],
+                }
+            },
+        }
+
+        result = self.bridge.parse_liqi(liqi_message)
+
+        self.assertEqual(result[0].type, "start_game")
+        self.assertTrue(result[0].is_3p)
+
+    def test_sync_game_event_order(self):
+        """测试 syncGame 返回事件的顺序：start_game → GAME_SYNCING → 游戏事件"""
+        from akagi_ng.schema.notifications import NotificationCode
+        from akagi_ng.schema.types import SystemEvent
+
+        liqi_message = {
+            "method": ".lq.FastTest.syncGame",
+            "type": 3,
+            "data": {
+                "gameRestore": {
+                    "snapshot": {
+                        "seat": 0,
+                        "players": [
+                            {"accountId": 11111111},
+                            {"accountId": 22222222},
+                            {"accountId": 33333333},
+                            {"accountId": 44444444},
+                        ],
+                    },
+                    "actions": [],
+                }
+            },
+        }
+
+        result = self.bridge.parse_liqi(liqi_message)
+
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0].type, "start_game")
+        self.assertIsInstance(result[1], SystemEvent)
+        self.assertEqual(result[1].code, NotificationCode.GAME_SYNCING)
+
     # ========== 无效消息处理测试 ==========
 
     def test_parse_liqi_returns_empty_list_for_empty_message(self):
