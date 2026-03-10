@@ -69,12 +69,14 @@ class TestMajsoulSyncAndReconnect(unittest.TestCase):
 
         events = self.bridge._parse_sync_game({})
 
-        # Expect standard parsing:
-        # 0: GAME_SYNCING
-        # 1: start_kyoku (from ActionNewRound)
+        # Expect:
+        # 0: start_game (synthesized for bot activation)
+        # 1: GAME_SYNCING
+        # 2: start_kyoku (from ActionNewRound)
         # Should NOT see a second start_kyoku
 
-        self.assertEqual(events[1].type, "start_kyoku")
+        self.assertEqual(events[0].type, "start_game")
+        self.assertEqual(events[2].type, "start_kyoku")
         start_kyoku_count = sum(1 for e in events if e.type == "start_kyoku")
         self.assertEqual(start_kyoku_count, 1)
 
@@ -100,11 +102,12 @@ class TestMajsoulSyncAndReconnect(unittest.TestCase):
 
         events = self.bridge._parse_sync_game({})
 
-        self.assertEqual(events[0].type, "system_event")
-        self.assertEqual(events[1].type, "tsumo")
-        self.assertTrue(events[1].sync)
-        self.assertEqual(events[2].type, "dahai")
-        self.assertFalse(events[2].sync)
+        self.assertEqual(events[0].type, "start_game")
+        self.assertEqual(events[1].type, "system_event")
+        self.assertEqual(events[2].type, "tsumo")
+        self.assertTrue(events[2].sync)
+        self.assertEqual(events[3].type, "dahai")
+        self.assertFalse(events[3].sync)
 
     def test_reconnect_with_real_log_data(self):
         """
@@ -138,18 +141,21 @@ class TestMajsoulSyncAndReconnect(unittest.TestCase):
         events = self.bridge._parse_sync_game(msg_dict)
 
         # Assertions
-        # 1. system_event
-        self.assertEqual(events[0].type, "system_event")
-        self.assertEqual(events[0].code, "game_syncing")
+        # 0: start_game (synthesized for bot activation)
+        self.assertEqual(events[0].type, "start_game")
+
+        # 1. system_event (GAME_SYNCING)
+        self.assertEqual(events[1].type, "system_event")
+        self.assertEqual(events[1].code, "game_syncing")
 
         # 2. start_kyoku should be present!
         # If ActionNewRound parses correctly, we should get start_kyoku.
-        self.assertGreater(len(events), 1, "Should have more than just system_event")
-        self.assertEqual(events[1].type, "start_kyoku")
-        self.assertEqual(len(events[1].tehais[self.bridge.seat]), 13)  # Hand tiles
+        self.assertGreater(len(events), 2, "Should have more than just start_game and system_event")
+        self.assertEqual(events[2].type, "start_kyoku")
+        self.assertEqual(len(events[2].tehais[self.bridge.seat]), 13)  # Hand tiles
 
         # 3. Tsumo event (since 14 tiles)
-        self.assertEqual(events[2].type, "tsumo")
+        self.assertEqual(events[3].type, "tsumo")
 
     def test_start_kyoku_immutability(self):
         """Test that start_kyoku event is not mutated by subsequent actions (Reference Bug Fix)."""

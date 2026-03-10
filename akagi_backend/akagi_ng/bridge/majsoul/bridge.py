@@ -67,7 +67,12 @@ class MajsoulBridge(BaseBridge):
         self._pre_scan_mode_from_sync_msg(liqi_message)
 
         sync_game_msgs = self._parse_sync_game_raw(liqi_message)
-        parsed_list: list[AkagiEvent] = [self.make_system_event(NotificationCode.GAME_SYNCING)]
+        # 重连场景下，始终合成一个 start_game 事件确保 Bot 被激活，
+        # 无论 authGame 握手是否已被捕获（例如 Akagi 在对局中途启动时）。
+        parsed_list: list[AkagiEvent] = [
+            self.make_start_game(self.seat, is_3p=self.is_3p),
+            self.make_system_event(NotificationCode.GAME_SYNCING),
+        ]
 
         try:
             for i, msg in enumerate(sync_game_msgs):
@@ -98,13 +103,20 @@ class MajsoulBridge(BaseBridge):
         return parsed_list
 
     def _pre_scan_mode_from_sync_msg(self, msg_dict: dict):
-        """从同步/进入房间消息中预扫描游戏模式"""
-        match msg_dict:
-            case {"data": {"gameRestore": {"snapshot": {"players": players}}}}:
-                self.is_3p = len(players) == MahjongConstants.SEATS_3P
-                logger.debug(f"Pre-scanned mode from snapshot: is_3p={self.is_3p}")
-            case _:
-                pass
+        """从同步/进入房间消息中预扫描游戏模式（及可用时的座位信息）"""
+        try:
+            snapshot = msg_dict["data"]["gameRestore"]["snapshot"]
+        except (KeyError, TypeError):
+            return
+
+        players = snapshot.get("players", [])
+        if players:
+            self.is_3p = len(players) == MahjongConstants.SEATS_3P
+            logger.debug(f"Pre-scanned mode from snapshot: is_3p={self.is_3p}")
+
+        if "seat" in snapshot:
+            self.seat = snapshot["seat"]
+            logger.debug(f"Pre-scanned seat from snapshot: seat={self.seat}")
 
     def _parse_sync_game_raw(self, msg_dict: dict) -> list[dict]:
         """从后端同步字典中解析出原始消息列表"""
