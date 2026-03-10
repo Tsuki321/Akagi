@@ -98,11 +98,21 @@ class BridgeAddon:
             self._majsoulmax_enabled = True
             logger.info("[MITM] MajsoulMax mod initialised successfully.")
         except ImportError as exc:
-            logger.warning(
-                f"[MITM] MajsoulMax mod is disabled: {exc}. "
-                "Ensure proto/liqi_pb2.py exists in akagi_ng/majsoulmax/proto/ "
-                "(enable liqi_auto_update or run update_liqi manually)."
-            )
+            if local_settings.majsoulmax.liqi_auto_update:
+                hint = (
+                    "liqi_auto_update is enabled but proto/liqi_pb2.py could not be "
+                    "downloaded automatically (network error or GitHub API rate limit). "
+                    "Check your network connection, add a GitHub token in Akagi settings, "
+                    "or manually download liqi.json / liqi.proto / liqi_pb2.py from "
+                    "https://github.com/Avenshy/AutoLiqi/releases/latest and place them "
+                    "in akagi_ng/majsoulmax/proto/."
+                )
+            else:
+                hint = (
+                    "Ensure proto/liqi_pb2.py exists in akagi_ng/majsoulmax/proto/ "
+                    "(enable liqi_auto_update or run update_liqi manually)."
+                )
+            logger.warning(f"[MITM] MajsoulMax mod is disabled: {exc}. {hint}")
         except Exception:
             logger.exception("[MITM] MajsoulMax mod failed to initialise.")
 
