@@ -203,3 +203,40 @@ def test_bridge_addon_queue_full_drops_system_event():
     addon._on_connection_established()
     assert addon._active_connections == 1
     assert shared_queue.qsize() == 1
+
+
+def test_bridge_addon_majsoulmax_disabled_by_default():
+    """MajsoulMax mod should be disabled by default."""
+    shared_queue = queue.Queue()
+    addon = BridgeAddon(shared_queue)
+
+    # By default, mod_enable is False, so the mod should not be initialised
+    assert addon._majsoulmax_enabled is False
+    assert addon._majsoulmax_mod is None
+    assert addon._mod_liqi_protos == {}
+
+
+def test_bridge_addon_majsoulmax_mod_liqi_proto_lifecycle():
+    """MajsoulMax per-flow LiqiProto is created on start and cleaned on end (when mod enabled)."""
+    shared_queue = queue.Queue()
+    addon = BridgeAddon(shared_queue)
+
+    # Simulate the mod being enabled and a fake mod object being set
+    addon._majsoulmax_enabled = True
+    addon._majsoulmax_mod = MagicMock()
+    addon._ModLiqiProto = MagicMock(return_value=MagicMock())  # type: ignore[attr-defined]
+
+    flow = MagicMock()
+    flow.id = "test_flow_majsoulmax"
+    flow.request.url = "wss://mj-jp.majsoul.com/socket"
+
+    with patch("akagi_ng.mitm_client.bridge_addon.local_settings") as mock_settings:
+        mock_settings.platform = "majsoul"
+        addon.websocket_start(flow)
+
+    # A LiqiProto should have been created for this flow
+    assert "test_flow_majsoulmax" in addon._mod_liqi_protos
+
+    # On websocket_end, it should be cleaned up
+    addon.websocket_end(flow)
+    assert "test_flow_majsoulmax" not in addon._mod_liqi_protos

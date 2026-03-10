@@ -18,6 +18,21 @@ from akagi_ng.schema.notifications import NotificationCode
 from akagi_ng.schema.types import AkagiEvent, SystemEvent
 from akagi_ng.settings import local_settings
 
+# ---------------------------------------------------------------------------
+# Optional MajsoulMax mod support
+# ---------------------------------------------------------------------------
+# The MajsoulMax mod requires proto/liqi_pb2.py which is downloaded at runtime.
+# If the file is absent, _MAJSOULMAX_AVAILABLE remains False and the mod is
+# silently disabled (a helpful log message is shown).
+_MAJSOULMAX_AVAILABLE: bool = False
+
+try:
+    from akagi_ng.majsoulmax import update_liqi as _majsoulmax_update_liqi
+
+    _MAJSOULMAX_UPDATE_MODULE_AVAILABLE = True
+except ImportError:
+    _MAJSOULMAX_UPDATE_MODULE_AVAILABLE = False
+
 # 平台与 URL 识别模式 Mapping
 PLATFORM_URL_PATTERNS = {
     Platform.MAJSOUL: ["majsoul", "maj-soul"],
@@ -42,7 +57,56 @@ class BridgeAddon:
         # 连接状态跟踪
         self._active_connections = 0
 
-    def _enqueue_event(self, event: AkagiEvent):
+        # MajsoulMax mod state
+        self._majsoulmax_enabled: bool = False
+        self._majsoulmax_mod: object | None = None
+        self._mod_liqi_protos: dict[str, object] = {}  # per-flow LiqiProto for MajsoulMax
+        if local_settings.majsoulmax.mod_enable:
+            self._init_majsoulmax()
+
+    def _init_majsoulmax(self) -> None:
+        """Initialise the MajsoulMax mod plugin.
+
+        Attempts to update liqi proto files (liqi_pb2.py) if auto-update is
+        configured, then imports and instantiates MajsoulMaxMod.
+        """
+        global _MAJSOULMAX_AVAILABLE
+
+        # Optionally auto-update liqi proto files before importing the mod
+        if _MAJSOULMAX_UPDATE_MODULE_AVAILABLE and local_settings.majsoulmax.liqi_auto_update:
+            logger.info("[MITM] MajsoulMax: checking liqi proto file updates …")
+            try:
+                result = _majsoulmax_update_liqi.update(
+                    local_settings.majsoulmax.liqi_version,
+                    local_settings.majsoulmax.github_token,
+                    local_settings.majsoulmax.liqi_hash,
+                )
+                # Persist the returned version/hash back to settings
+                local_settings.majsoulmax.liqi_version = result.get("version", "")
+                local_settings.majsoulmax.liqi_hash = result.get("hash", "")
+            except Exception:
+                logger.warning("[MITM] MajsoulMax: liqi update failed, using cached files (if any).")
+
+        # Now import and instantiate the mod (requires liqi_pb2.py to exist)
+        try:
+            from akagi_ng.majsoulmax.liqi_new import LiqiProto as _ModLiqiProto
+            from akagi_ng.majsoulmax.mod import MajsoulMaxMod
+
+            self._majsoulmax_mod = MajsoulMaxMod("akagi-integrated")
+            self._ModLiqiProto = _ModLiqiProto
+            _MAJSOULMAX_AVAILABLE = True
+            self._majsoulmax_enabled = True
+            logger.info("[MITM] MajsoulMax mod initialised successfully.")
+        except ImportError as exc:
+            logger.warning(
+                f"[MITM] MajsoulMax mod is disabled: {exc}. "
+                "Ensure proto/liqi_pb2.py exists in akagi_ng/majsoulmax/proto/ "
+                "(enable liqi_auto_update or run update_liqi manually)."
+            )
+        except Exception:
+            logger.exception("[MITM] MajsoulMax mod failed to initialise.")
+
+    def _enqueue_event(self, event: AkagiEvent) -> None:
         try:
             self.mjai_messages.put(event, block=False)
         except queue.Full:
@@ -57,7 +121,7 @@ class BridgeAddon:
 
         return None
 
-    def websocket_start(self, flow: mitmproxy.http.HTTPFlow):
+    def websocket_start(self, flow: mitmproxy.http.HTTPFlow) -> None:
         configured_platform = local_settings.platform
         detected_platform = self._get_platform_for_flow(flow)
 
@@ -75,6 +139,12 @@ class BridgeAddon:
             match platform:
                 case Platform.MAJSOUL:
                     self.bridges[flow.id] = MajsoulBridge()
+                    # Create a per-flow MajsoulMax LiqiProto for request/response tracking
+                    if self._majsoulmax_enabled and self._majsoulmax_mod is not None:
+                        try:
+                            self._mod_liqi_protos[flow.id] = self._ModLiqiProto()
+                        except Exception:
+                            logger.exception("[MITM] MajsoulMax: failed to create LiqiProto for flow.")
                 case Platform.TENHOU:
                     self.bridges[flow.id] = TenhouBridge()
                 case Platform.AMATSUKI:
@@ -130,7 +200,33 @@ class BridgeAddon:
         patterns = PLATFORM_URL_PATTERNS.get(platform, [])
         return any(pattern in url for pattern in patterns) if patterns else True
 
-    def websocket_message(self, flow: mitmproxy.http.HTTPFlow):
+    def _apply_majsoulmax_mod(self, flow: mitmproxy.http.HTTPFlow, msg: mitmproxy.websocket.WebSocketMessage) -> bool:
+        """Run the MajsoulMax mod on *msg* (in-place) for the given flow.
+
+        Returns True if the message was dropped (caller should return early),
+        False otherwise.
+        """
+        mod_liqi_proto = self._mod_liqi_protos.get(flow.id)
+        if mod_liqi_proto is None:
+            return False
+        try:
+            from mitmproxy import ctx
+
+            modify, drop, new_content, inject, inject_msg = self._majsoulmax_mod.main(  # type: ignore[union-attr]
+                msg, mod_liqi_proto
+            )
+            if drop:
+                msg.drop()
+                return True
+            if inject:
+                ctx.master.commands.call("inject.websocket", flow, True, inject_msg, False)
+            if modify:
+                msg.content = new_content
+        except Exception:
+            logger.exception("[MITM] MajsoulMax mod error processing message.")
+        return False
+
+    def websocket_message(self, flow: mitmproxy.http.HTTPFlow) -> None:
         if flow.id not in self.activated_flows:
             return
 
@@ -139,6 +235,21 @@ class BridgeAddon:
             direction = "<-" if msg.from_client else "->"
             logger.trace(f"[MITM] {direction} Message: {msg.content}")
 
+            # -------------------------------------------------------------------
+            # MajsoulMax mod: intercept Majsoul messages before Akagi's bridge
+            # Skips injected messages to prevent feedback loops.
+            # -------------------------------------------------------------------
+            if (
+                self._majsoulmax_enabled
+                and self._majsoulmax_mod is not None
+                and not msg.injected
+                and self._apply_majsoulmax_mod(flow, msg)
+            ):
+                return  # message was dropped
+
+            # -------------------------------------------------------------------
+            # Akagi bridge: parse for AI analysis
+            # -------------------------------------------------------------------
             with self.bridge_lock:
                 if flow.id not in self.bridges:
                     return
@@ -163,7 +274,7 @@ class BridgeAddon:
             self._enqueue_event(SystemEvent(code=NotificationCode.CLIENT_CONNECTED))
             logger.info("[MITM] Client connected (first connection)")
 
-    def websocket_end(self, flow: mitmproxy.http.HTTPFlow):
+    def websocket_end(self, flow: mitmproxy.http.HTTPFlow) -> None:
         if flow.id in self.activated_flows:
             logger.info(f"[MITM] WebSocket connection closed: {flow.id}")
             self.activated_flows.remove(flow.id)
@@ -173,6 +284,8 @@ class BridgeAddon:
                     game_ended = getattr(bridge, "game_ended", False)
                     del self.bridges[flow.id]
                     self.last_activity.pop(flow.id, None)
+                    # Clean up per-flow MajsoulMax LiqiProto
+                    self._mod_liqi_protos.pop(flow.id, None)
 
                     # 更新连接计数并发送通知
                     self._on_connection_closed(game_ended)

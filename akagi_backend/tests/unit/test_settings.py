@@ -17,6 +17,7 @@ import pytest
 
 from akagi_ng.settings.settings import (
     SETTINGS_JSON_PATH,
+    MajsoulMaxConfig,
     MITMConfig,
     ModelConfig,
     OTConfig,
@@ -47,6 +48,14 @@ class TestSettingsDataclasses(unittest.TestCase):
         self.assertTrue(config.enabled)
         self.assertEqual(config.host, "127.0.0.1")
         self.assertEqual(config.port, 6789)
+
+    def test_majsoulmax_config_defaults(self):
+        config = MajsoulMaxConfig()
+        self.assertFalse(config.mod_enable)
+        self.assertTrue(config.liqi_auto_update)
+        self.assertEqual(config.github_token, "")
+        self.assertEqual(config.liqi_version, "")
+        self.assertEqual(config.liqi_hash, "")
 
     def test_server_config_creation(self):
         config = ServerConfig(host="0.0.0.0", port=8080)
@@ -123,6 +132,29 @@ class TestSettingsClass(unittest.TestCase):
         s.update({"log_level": "DEBUG", "mitm": {"enabled": True}})
         self.assertEqual(s.log_level, "DEBUG")
         self.assertTrue(s.mitm.enabled)
+
+    def test_settings_majsoulmax_defaults(self):
+        """MajsoulMax config should default to disabled when absent from dict."""
+        s = Settings.from_dict({})
+        self.assertIsNotNone(s.majsoulmax)
+        self.assertFalse(s.majsoulmax.mod_enable)
+        self.assertTrue(s.majsoulmax.liqi_auto_update)
+
+    def test_settings_majsoulmax_from_dict(self):
+        """MajsoulMax config can be set via from_dict."""
+        data = {
+            "majsoulmax": {
+                "mod_enable": True,
+                "liqi_auto_update": False,
+                "github_token": "ghp_test",
+                "liqi_version": "v1.0",
+                "liqi_hash": "abc123",
+            }
+        }
+        s = Settings.from_dict(data)
+        self.assertTrue(s.majsoulmax.mod_enable)
+        self.assertFalse(s.majsoulmax.liqi_auto_update)
+        self.assertEqual(s.majsoulmax.github_token, "ghp_test")
 
 
 class TestSettingsLifecycle(unittest.TestCase):
