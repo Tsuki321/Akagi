@@ -30,6 +30,7 @@ class MajsoulMaxMod:
     def __init__(self, version):
         self.version = version
         self.safe = {}
+        self.contract = b''
         self.yaml = YAML()
         self._lazy_import_proto()
         self.LoadSettings()
@@ -196,13 +197,15 @@ mod: {}
 
         prefix = self.get_prefix(new_version)
 
-        # 校验版本是否相同
-        if self.settings['resource']['lqc_lqbin_version'] == prefix:
+        lqc_path = _PROTO_DIR / 'lqc.lqbin'
+        # 校验版本是否相同，同时确认文件存在
+        if self.settings['resource']['lqc_lqbin_version'] == prefix and lqc_path.exists():
             logger.success(f'lqc.lqbin文件无需更新，当前版本：{prefix}')
         else:
             # 更新lqc.lqbin
             lqc_lqbin = self.get_lqc_lqbin(prefix)
-            with open(str(_PROTO_DIR / 'lqc.lqbin'), 'wb') as f:
+            _PROTO_DIR.mkdir(parents=True, exist_ok=True)
+            with open(str(lqc_path), 'wb') as f:
                 f.write(lqc_lqbin)
             self.settings['resource']['lqc_lqbin_version'] = prefix
             logger.success(f'lqc.lqbin文件更新成功：{prefix}')
@@ -287,6 +290,14 @@ mod: {}
                 # assert (len(msg_block) == 2)
                 assert (msg_id not in liqi_proto.res_type)
                 method_name = msg_block.method_name
+                # Track this request so its response can be identified in Res handling
+                try:
+                    _, lq, service, rpc = method_name.split('.')
+                    proto_domain = liqi_proto.jsonProto['nested'][lq]['nested'][service]['methods'][rpc]
+                    liqi_proto.res_type[msg_id] = (method_name, getattr(liqi_pb2, proto_domain['responseType']))
+                except Exception:
+                    logger.debug(f'[MajsoulMax] Could not resolve response type for {method_name!r}, using None.')
+                    liqi_proto.res_type[msg_id] = (method_name, None)
                 # 根据method_name判断是否需要修改
                 match method_name:
                     case '.lq.Lobby.changeMainCharacter':  # 修改看板娘
@@ -394,7 +405,7 @@ mod: {}
                 assert (not from_client)
                 assert (len(msg_block.method_name) == 0)
                 assert (msg_id in liqi_proto.res_type)
-                method_name, liqi_pb2_res = liqi_proto.res_type[msg_id]
+                method_name, liqi_pb2_res = liqi_proto.res_type.pop(msg_id)
                 # 根据method_name判断是否需要修改
                 match method_name:
                     case '.lq.Lobby.fetchCharacterInfo':  # 获取角色和皮肤信息
