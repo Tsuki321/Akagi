@@ -89,11 +89,11 @@ class BridgeAddon:
 
         # Now import and instantiate the mod (requires liqi_pb2.py to exist)
         try:
-            from akagi_ng.majsoulmax.liqi_new import LiqiProto as _ModLiqiProto
+            from akagi_ng.majsoulmax.liqi_new import LiqiProto as _mod_liqi_proto_class
             from akagi_ng.majsoulmax.mod import MajsoulMaxMod
 
             self._majsoulmax_mod = MajsoulMaxMod("akagi-integrated")
-            self._ModLiqiProto = _ModLiqiProto
+            self._mod_liqi_proto_class = _mod_liqi_proto_class
             _MAJSOULMAX_AVAILABLE = True
             self._majsoulmax_enabled = True
             logger.info("[MITM] MajsoulMax mod initialised successfully.")
@@ -142,7 +142,7 @@ class BridgeAddon:
                     # Create a per-flow MajsoulMax LiqiProto for request/response tracking
                     if self._majsoulmax_enabled and self._majsoulmax_mod is not None:
                         try:
-                            self._mod_liqi_protos[flow.id] = self._ModLiqiProto()
+                            self._mod_liqi_protos[flow.id] = self._mod_liqi_proto_class()
                         except Exception:
                             logger.exception("[MITM] MajsoulMax: failed to create LiqiProto for flow.")
                 case Platform.TENHOU:

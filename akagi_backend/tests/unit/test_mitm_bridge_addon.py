@@ -224,7 +224,7 @@ def test_bridge_addon_majsoulmax_mod_liqi_proto_lifecycle():
     # Simulate the mod being enabled and a fake mod object being set
     addon._majsoulmax_enabled = True
     addon._majsoulmax_mod = MagicMock()
-    addon._ModLiqiProto = MagicMock(return_value=MagicMock())  # type: ignore[attr-defined]
+    addon._mod_liqi_proto_class = MagicMock(return_value=MagicMock())  # type: ignore[attr-defined]
 
     flow = MagicMock()
     flow.id = "test_flow_majsoulmax"

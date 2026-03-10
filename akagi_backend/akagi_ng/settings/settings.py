@@ -2,7 +2,7 @@ import ctypes
 import json
 import locale
 import os
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Self
 
@@ -74,11 +74,9 @@ class Settings:
     server: ServerConfig
     ot: OTConfig
     model_config: ModelConfig
-    majsoulmax: MajsoulMaxConfig = None  # type: ignore[assignment]
+    majsoulmax: MajsoulMaxConfig = field(default_factory=MajsoulMaxConfig)
 
     def __post_init__(self) -> None:
-        if self.majsoulmax is None:
-            self.majsoulmax = MajsoulMaxConfig()
         self._validate_game_url()
 
     def update(self, data: dict) -> None:
