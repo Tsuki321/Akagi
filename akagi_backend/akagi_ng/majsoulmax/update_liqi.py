@@ -82,8 +82,20 @@ def _download_liqi_assets(release: dict, token: str):
 
 
 def update(version: str, token: str, stored_hash: str = "") -> dict:
-    """Update liqi proto files. Returns dict with 'version' and 'hash' keys."""
-    new_version = "v" + get_version()
+    """Update liqi proto files. Returns dict with 'version' and 'hash' keys.
+
+    Never raises — on any network/parse error a warning is logged and the
+    function returns the caller-supplied version/hash so that existing cached
+    files (if any) are used unchanged.
+    """
+    stored_hash = stored_hash or ""
+
+    try:
+        new_version = "v" + get_version()
+    except Exception as exc:
+        logger.warning(f"获取Majsoul版本失败，跳过liqi更新：{exc}")
+        return {"version": version, "hash": stored_hash}
+
     local_hash = None
     try:
         local_hash = _read_local_hash()
@@ -93,12 +105,16 @@ def update(version: str, token: str, stored_hash: str = "") -> dict:
         logger.error(f"读取本地liqi文件失败：{exc}")
         local_hash = None
 
-    stored_hash = stored_hash or ""
     if version == new_version and stored_hash != "" and local_hash == stored_hash:
         logger.success(f"liqi文件无需更新，当前版本：{new_version}")
         return {"version": new_version, "hash": local_hash}
 
-    req = _download_latest_release(token)
+    try:
+        req = _download_latest_release(token)
+    except Exception as exc:
+        logger.warning(f"获取AutoLiqi发布信息失败，跳过liqi更新：{exc}")
+        return {"version": version, "hash": local_hash or stored_hash}
+
     if req.headers.get("X-RateLimit-Remaining") == "0":
         logger.error(
             "github api额度用完，无法更新liqi文件！请尝试以下方法：\n"
@@ -111,13 +127,24 @@ def update(version: str, token: str, stored_hash: str = "") -> dict:
         )
         return {"version": version, "hash": local_hash or stored_hash}
 
-    liqi = req.json()
-    if liqi["tag_name"][: len(new_version)] != new_version:
+    try:
+        liqi = req.json()
+        tag_name = liqi["tag_name"]
+    except Exception as exc:
+        logger.warning(f"解析AutoLiqi发布信息失败，跳过liqi更新：{exc}")
+        return {"version": version, "hash": local_hash or stored_hash}
+
+    if tag_name[: len(new_version)] != new_version:
         logger.error("liqi文件需要更新，但AutoLiqi项目还未更新，晚点再来试试吧！")
         logger.error("详细信息请看 https://github.com/Avenshy/AutoLiqi")
         return {"version": version, "hash": local_hash or stored_hash}
 
-    blobs = _download_liqi_assets(liqi, token)
+    try:
+        blobs = _download_liqi_assets(liqi, token)
+    except Exception as exc:
+        logger.warning(f"下载liqi文件失败，跳过liqi更新：{exc}")
+        return {"version": version, "hash": local_hash or stored_hash}
+
     remote_hash = _calculate_hash(blobs)
     if local_hash == remote_hash:
         logger.success(f"liqi文件无需更新，当前版本：{new_version}")
